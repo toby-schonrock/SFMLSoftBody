@@ -19,6 +19,9 @@ public:
     Vector2 norm(){
         return *this / this->mag();
     }
+    double dot(const Vector2& rhs) const {
+        return x * rhs.x + y * rhs.y;
+    }
 
     Vector2& operator += (const Vector2& obj) {
         x += obj.x;

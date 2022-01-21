@@ -46,7 +46,25 @@ sf::Vector2f visualize(const Vec2& v) {
 }
 
 void springHandler(Point& p1, Point& p2, double stableScale) {
+    static constexpr double stablePoint = 0.21;
+    static constexpr double springConst = 1;
+    static constexpr double dampFact = 0.2;
+
     Vec2 diff = p1.pos - p2.pos;
+        //if (diff.magnitude < radius * 2f) {
+        //    Debug.Log("internal collision");
+        //    Vector3 avg = (p2._pos + p1._pos) / 2;
+        //    p1._pos = avg + diff.normalized * radius;
+        //    p2._pos = avg - diff.normalized * radius;
+        //    Vector3 normal = diff.normalized;
+        //    p1._vel -= 2 * Vector3.Dot(p1._vel, normal) * normal;
+        //    p2._vel -= 2 * Vector3.Dot(p2._vel, -normal) * -normal;
+        //}
+    double e = diff.mag() - stablePoint * stableScale;
+    double springf = -springConst * e; // -ke spring force
+    double dampf = diff.norm().dot(p2.vel - p1.vel) * dampFact; // damping force
+    p1.f += (springf + dampf) * diff.norm(); // equal and opposite reaction
+    p2.f -= (springf + dampf) * diff.norm();
 }
 
 void simFrame(Matrix<Point>& points) {
@@ -54,41 +72,52 @@ void simFrame(Matrix<Point>& points) {
     for (int x = 0; x < points.sizeX; x++) {
         for (int y = 0; y < points.sizeY; y++) {
             Point& p = points(x, y);
-            if (x < points.sizeX - 1) {  // to the right
-                if (y < points.sizeY - 1) { // to the right and above
-                    springHandler(p, points(x + 1, y + 1), r2);
+            if (x < points.sizeX - 1) {  
+                if (y < points.sizeY - 1) { 
+                    springHandler(p, points(x + 1, y + 1), r2); // down right
                 }
-                springHandler(p, points(x + 1, y), 1.0);
+                springHandler(p, points(x + 1, y), 1.0); // right
             }
-            if (y < points.sizeY - 1) { // above
-                if (x > 0) { // to the left and above
-                    springHandler(p, points(x - 1, y), r2);
+            if (y < points.sizeY - 1) {
+                if (x > 0) {
+                    springHandler(p, points(x - 1, y + 1), r2); // down left
                 }
-                springHandler(p, points(x - 1, y + 1), 1.0);
+                springHandler(p, points(x, y + 1), 1.0); // down
             }
         }
     }
 }
 
 int main() {
-    constexpr Vec2 scale(1, 2);
+    constexpr Vec2 scale(2, 2);
     constexpr Vec2 gap(0.2, 0.2);
     constexpr Vec2I size(static_cast<int>(scale.x / gap.x), static_cast<int>(scale.y / gap.y));
     constexpr Vec2 simPos(1, 1);
-    constexpr double radius = 0.00005;
-    constexpr double gravity = 9.8;
+    constexpr double radius = 0.05;
+    constexpr double gravity = 0;//9.8;
+
+    std::cout << Vec2(0,1) - Vec2(0,2) << '\n'; // [0, 1]
+    std::cout << (Vec2(0,0) - Vec2(1,1)).mag() << '\n'; // 1.41421
+    std::cout << Vec2(1,1).dot(Vec2(2,2)) << '\n'; // 4
+    std::cout << Vec2(1,1).dot(Vec2(2,-2)) << '\n'; // 0
+    std::cout << Vec2(2,2).norm() << '\n'; // 0
+
+    Point p1(Vec2(3, 3), 1.0, radius);
+    Point p2(Vec2(3, 3.2), 1.0, radius);
+    springHandler(p1, p2, 1);
+    std::cout << p1.f;
+
+    // return (EXIT_SUCCESS);
 
     // mass is 1 kg per point
     // 1.. is one meter
-
-    std::cout << size;
  
     sf::RenderWindow window(sf::VideoMode(1920, 1080), "Soft Body Simulation"); //, sf::Style::Fullscreen);
 
     Matrix<Point> points(size.x, size.y);
     for (int x = 0; x < size.x; x++) {
         for (int y = 0; y < size.y; y++) {
-            points(x, y) = Point(Vec2(x * gap.x, y * gap.y) + simPos, radius, 1.0);
+            points(x, y) = Point(Vec2(x * gap.x, y * gap.y) + simPos, 1.0, radius);
         } 
     }
 
