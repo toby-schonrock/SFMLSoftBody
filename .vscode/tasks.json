@@ -6,9 +6,14 @@
 			"label": "C/C++: g++.exe build active file",
 			"command": "C:\\Dev\\mingw64\\bin\\g++.exe",
 			"args": [
+				"-Wall",
+				"-Wextra",
+				"-Wpedantic",
+				"-Wconversion",
+				"-std=c++17",
+				"-O3",
 				"-fdiagnostics-color=always",
-				"-g",
-				"${file}",
+				//"-g",
 				"-I",
 				"C:\\Dev\\SFML-2.5.1\\include",
 				"-I",
@@ -22,7 +27,8 @@
 				"-l",
 				"sfml-system-2",
 				"-o",
-				"${fileDirname}\\${fileBasenameNoExtension}.exe"
+				"${fileDirname}\\${fileBasenameNoExtension}.exe",
+				"${file}"
 			],
 			"options": {
 				"cwd": "C:\\Dev\\mingw64\\bin"

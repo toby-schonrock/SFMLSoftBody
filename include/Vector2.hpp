@@ -1,16 +1,19 @@
+#pragma once
+
 #include <cmath>
 #include <ostream>
 
+template <typename T>
 class Vector2 {
 public:
-    double x;
-    double y;
+    T x;
+    T y;
 
-    Vector2(double x_, double y_) : x(x_), y(y_) {}
+    constexpr Vector2(T x_, T y_) : x(x_), y(y_) {}
 
-    Vector2() : x{}, y{} {}
+    constexpr Vector2() : x{}, y{} {}
 
-    double mag() {
+    T mag() {
         return std::hypot(x, y);
     }
     Vector2 norm(){
@@ -57,3 +60,6 @@ public:
         return os << '[' << v.x << ", " << v.y << ']';
     }
 };
+
+using Vec2 = Vector2<double>;
+using Vec2I = Vector2<int>;
