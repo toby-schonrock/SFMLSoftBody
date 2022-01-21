@@ -1,4 +1,6 @@
+#define _USE_MATH_DEFINES
 #include <cmath>
+#include <string>
 #include <chrono>
 #include <thread>
 #include <iostream>
@@ -46,20 +48,11 @@ sf::Vector2f visualize(const Vec2& v) {
 }
 
 void springHandler(Point& p1, Point& p2, double stableScale) {
-    static constexpr double stablePoint = 0.21;
-    static constexpr double springConst = 1;
-    static constexpr double dampFact = 0.2;
+    static constexpr double stablePoint = 0.22;
+    static constexpr double springConst = 14;
+    static constexpr double dampFact = 2;
 
     Vec2 diff = p1.pos - p2.pos;
-        //if (diff.magnitude < radius * 2f) {
-        //    Debug.Log("internal collision");
-        //    Vector3 avg = (p2._pos + p1._pos) / 2;
-        //    p1._pos = avg + diff.normalized * radius;
-        //    p2._pos = avg - diff.normalized * radius;
-        //    Vector3 normal = diff.normalized;
-        //    p1._vel -= 2 * Vector3.Dot(p1._vel, normal) * normal;
-        //    p2._vel -= 2 * Vector3.Dot(p2._vel, -normal) * -normal;
-        //}
     double e = diff.mag() - stablePoint * stableScale;
     double springf = -springConst * e; // -ke spring force
     double dampf = diff.norm().dot(p2.vel - p1.vel) * dampFact; // damping force
@@ -68,19 +61,18 @@ void springHandler(Point& p1, Point& p2, double stableScale) {
 }
 
 void simFrame(Matrix<Point>& points) {
-    static constexpr double r2 = 1.4142857;
     for (int x = 0; x < points.sizeX; x++) {
         for (int y = 0; y < points.sizeY; y++) {
             Point& p = points(x, y);
             if (x < points.sizeX - 1) {  
                 if (y < points.sizeY - 1) { 
-                    springHandler(p, points(x + 1, y + 1), r2); // down right
+                    springHandler(p, points(x + 1, y + 1), M_SQRT2); // down right
                 }
                 springHandler(p, points(x + 1, y), 1.0); // right
             }
             if (y < points.sizeY - 1) {
                 if (x > 0) {
-                    springHandler(p, points(x - 1, y + 1), r2); // down left
+                    springHandler(p, points(x - 1, y + 1), M_SQRT2); // down left
                 }
                 springHandler(p, points(x, y + 1), 1.0); // down
             }
@@ -88,11 +80,24 @@ void simFrame(Matrix<Point>& points) {
     }
 }
 
+void displayFps(double fps, sf::RenderWindow& window){
+    sf::Font font;
+    if (!font.loadFromFile("arial.ttf")) {
+        // error...
+    }
+    sf::Text text;
+    text.setFont(font); // font is a sf::Font
+    text.setString(std::to_string(fps));
+    text.setCharacterSize(24); // in pixels, not points!
+    text.setFillColor(sf::Color::Red);
+    window.draw(text);
+}
+
 int main() {
-    constexpr Vec2 scale(2, 2);
+    constexpr Vec2 scale(4, 4);
     constexpr Vec2 gap(0.2, 0.2);
     constexpr Vec2I size(static_cast<int>(scale.x / gap.x), static_cast<int>(scale.y / gap.y));
-    constexpr Vec2 simPos(1, 1);
+    constexpr Vec2 simPos(3, 3);
     constexpr double radius = 0.05;
     constexpr double gravity = 0;//9.8;
 
@@ -113,6 +118,7 @@ int main() {
     // 1.. is one meter
  
     sf::RenderWindow window(sf::VideoMode(1920, 1080), "Soft Body Simulation"); //, sf::Style::Fullscreen);
+    window.setFramerateLimit(100);
 
     Matrix<Point> points(size.x, size.y);
     for (int x = 0; x < size.x; x++) {
@@ -124,6 +130,7 @@ int main() {
     // Point p(Vec2(0, 0), radius, 1.0);
 
     std::chrono::_V2::system_clock::time_point last = std::chrono::high_resolution_clock::now();
+    double fps = 0;
 
     while (window.isOpen()) {
         std::chrono::_V2::system_clock::time_point start = std::chrono::high_resolution_clock::now();
@@ -133,13 +140,13 @@ int main() {
         while (window.pollEvent(event)) {
              if (event.type == sf::Event::Closed) window.close();
         }
+        window.clear();
 
-
-
+        displayFps(fps, window);
 
         std::chrono::nanoseconds deltatime = std::chrono::high_resolution_clock::now() - last;
         last = std::chrono::high_resolution_clock::now();
-        window.clear();
+
         // std::cout << nanos.count() << '\n';
         simFrame(points);
         for (int x = 0; x < points.sizeX; x++) {
@@ -149,15 +156,14 @@ int main() {
         }
         // p.update(static_cast<double>(nanos.count()) / 1000000.0, window, gravity);
 
-
-
-
         window.display();
         std::chrono::nanoseconds nanos = std::chrono::high_resolution_clock::now() - start;
-        // std::cout << "elapsed time: " << nanos.count() << "ns\n";
+        std::cout << nanos.count();
         while ((nanos.count() < 1'000'000)) {
             nanos = std::chrono::high_resolution_clock::now() - start;
         }
+        std::cout << " - " << nanos.count() << "ns\n";
+        fps = 1e9 / static_cast<double>(nanos.count());
     }
 
     return 0;
