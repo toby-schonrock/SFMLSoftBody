@@ -46,16 +46,38 @@ public:
     }
 
     void polyColHandler() {
-            if (pos.y > 7) {
-                vel.y *= -1;
-                pos.y = 7;
-            }
+        if (pos.y > 7) {
+            vel.y *= -1;
+            pos.y = 7;
         }
+    }
+    
 };
 
 sf::Vector2f visualize(const Vec2& v) {
     return sf::Vector2f(static_cast<float>(v.x * vsScale), static_cast<float>(v.y * vsScale));
 }
+
+class Polygon {
+private:
+    sf::ConvexShape shape;
+public:
+    Vec2 points[4];
+    Polygon(Vec2 pos, double tilt) {
+        shape.setPointCount(4);
+        points[0] = Vec2(2, 0.5) + pos;
+        points[1] = Vec2(-2, 0.5) + pos;
+        points[2] = Vec2(-2, -0.5 + tilt) + pos;
+        points[3] = Vec2(2, -0.5 - tilt) + pos;
+        for (int x = 0; x < 4; x++) {
+            shape.setPoint(x, visualize(points[x]));
+        }
+    }
+
+    void draw(sf::RenderWindow& window) {
+        window.draw(shape);
+    }
+};
 
 void springHandler(Point& p1, Point& p2, double stableScale) {
     static constexpr double stablePoint = 0.2;
@@ -109,7 +131,8 @@ int main() {
 
     sf::Font font;
     if (!font.loadFromFile("arial.ttf")) {
-        // error...
+        std::cout << "Font file not found";
+        return (EXIT_FAILURE);
     }
 
     std::cout << Vec2(0,1) - Vec2(0,2) << '\n'; // [0, 1]
@@ -128,7 +151,10 @@ int main() {
     // mass is 1 kg per point
     // 1.. is one meter
  
-    sf::RenderWindow window(sf::VideoMode(1920, 1080), "Soft Body Simulation"); //, sf::Style::Fullscreen);
+    sf::ContextSettings settings;
+    settings.antialiasingLevel = 8;
+
+    sf::RenderWindow window(sf::VideoMode(1920, 1080), "Soft Body Simulation", sf::Style::Default, settings); //, sf::Style::Fullscreen);
 
     Matrix<Point> points(size.x, size.y);
     for (int x = 0; x < size.x; x++) {
@@ -137,7 +163,7 @@ int main() {
         } 
     }
 
-    // Point p(Vec2(0, 0), radius, 1.0);
+    Polygon t(Vec2(4,8), -0.5);
 
     std::chrono::_V2::system_clock::time_point last = std::chrono::high_resolution_clock::now();
     double Vfps = 0;
@@ -174,6 +200,8 @@ int main() {
         points.forEach([&window] (Point& p) {
             p.draw(window);
         });
+
+        t.draw(window);
 
         window.display();
       
