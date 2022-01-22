@@ -2,7 +2,6 @@
 #include <cmath>
 #include <string>
 #include <chrono>
-#include <thread>
 #include <iostream>
 
 #include <SFML/Graphics.hpp>
@@ -12,6 +11,28 @@
 constexpr double vsScale = 100.0;
 
 sf::Vector2f visualize(const Vec2& v);
+
+class Polygon {
+private:
+    sf::ConvexShape shape;
+public:
+    Vec2 points[4];
+    int pointCount = 4;
+    Polygon(Vec2 pos, double tilt) {
+        shape.setPointCount(4);
+        points[0] = Vec2(2, 0.5) + pos;
+        points[1] = Vec2(-2, 0.5) + pos;
+        points[2] = Vec2(-2, -0.5 + tilt) + pos;
+        points[3] = Vec2(2, -0.5 - tilt) + pos;
+        for (int x = 0; x < 4; x++) {
+            shape.setPoint(x, visualize(points[x]));
+        }
+    }
+
+    void draw(sf::RenderWindow& window) {
+        window.draw(shape);
+    }
+};
 
 class Point {
 public:
@@ -32,8 +53,9 @@ public:
     }
 
     void draw(sf::RenderWindow& window) {
-            shape.setPosition(visualize(pos));
-            window.draw(shape);
+        shape.setPosition(visualize(pos));
+        window.draw(shape);
+        // std::cout << pos;
     }
 
     void update(double deltaTime, double gravity) {
@@ -51,33 +73,69 @@ public:
             pos.y = 7;
         }
     }
-    
+
+    void polyColHandler(Polygon& p) {
+            bool inside = false;
+
+            // double closestDist = DistToEdge(p.points[p.pointCount - 1], p.points[0]);
+            double closestDist = DistToEdge(p.points[p.pointCount - 1], p.points[0]);
+            Vec2 closestPos = ClosestOnLine(p.points[p.pointCount - 1], p.points[0], closestDist); // test distance to side consisting of last and first vertice
+
+            // std::cout << closestDist << '\n';
+
+            // return;
+
+            if (RayCast(p.points[p.pointCount - 1], p.points[0])) inside = !inside;
+
+            for (int x = 0; x < p.pointCount - 1; x++) { // iterate through all other sides
+                double dist = DistToEdge(p.points[x], p.points[x + 1]);
+                if (RayCast(p.points[x], p.points[x + 1])) inside = !inside;
+                if (closestDist > dist) { // if new closest side found
+                    closestPos = ClosestOnLine(p.points[x], p.points[x + 1], dist);
+                    closestDist = dist;
+                }
+            }
+            if (inside) {
+                Vec2 normal = (closestPos - pos);
+                if (closestDist > 1e-10){ // to prevent the norm() dividing by ~ 0
+                    normal = normal.norm();
+                    vel -= (2 * normal.dot(vel) * normal);
+                    pos = closestPos;
+                }
+            }
+        }
+
+        // cast a verticle ray from infinty to tPos and sees if it collides with the line created between v1 and v2
+        bool RayCast(const Vec2& v1, const Vec2& v2) {
+            if ((pos.x < std::min(v1.x, v2.x)) | (pos.x > std::max(v1.x, v2.x))) return false; // if point outisde range of line
+            double deltaX = std::abs(v2.x - v1.x);
+            if (deltaX == 0.0) return false; // if vertices form a verticle line a verticle line cannot intersect
+            double deltaY = v2.y - v1.y;
+            // Debug.DrawLine(Vector3.zero, new Vector3(tPos.x - 1, Mathf.Abs(v1.x - tPos.x) / deltaX * deltaY + v1.y - 1, 0), Color.green);
+            if (std::abs(v1.x - pos.x) / deltaX * deltaY + v1.y > pos.y) return true;
+            return false;
+        }
+
+        // using the shortest distance to the line finds the closest point on the line too pos
+        Vec2 ClosestOnLine(const Vec2& v1, const Vec2& v2, double dist) { 
+            double c2pd = (v1 - pos).mag(); // corner to point distance
+            Vec2 result = std::sqrt(c2pd * c2pd - dist * dist) * (v2 - v1).norm(); // pythag
+            return result + v1;
+        }
+
+        // finds the shortest distance from point to line
+        double DistToEdge(const Vec2& v1, const Vec2& v2) { // finds the shortest distance from the point to the edge
+            // https://en.wikipedia.org/wiki/Distance_from_a_point_to_a_line#Line_defined_by_two_points
+            // draws a traingle between the three points and performs h = 2A/b
+            double TArea = std::abs((v2.x - v1.x) * (v1.y - pos.y) - (v1.x - pos.x) * (v2.y - v1.y));
+            double TBase = (v1 - v2).mag();
+            return TArea / TBase;
+        }
 };
 
 sf::Vector2f visualize(const Vec2& v) {
     return sf::Vector2f(static_cast<float>(v.x * vsScale), static_cast<float>(v.y * vsScale));
 }
-
-class Polygon {
-private:
-    sf::ConvexShape shape;
-public:
-    Vec2 points[4];
-    Polygon(Vec2 pos, double tilt) {
-        shape.setPointCount(4);
-        points[0] = Vec2(2, 0.5) + pos;
-        points[1] = Vec2(-2, 0.5) + pos;
-        points[2] = Vec2(-2, -0.5 + tilt) + pos;
-        points[3] = Vec2(2, -0.5 - tilt) + pos;
-        for (int x = 0; x < 4; x++) {
-            shape.setPoint(x, visualize(points[x]));
-        }
-    }
-
-    void draw(sf::RenderWindow& window) {
-        window.draw(shape);
-    }
-};
 
 void springHandler(Point& p1, Point& p2, double stableScale) {
     static constexpr double stablePoint = 0.2;
@@ -125,6 +183,7 @@ int main() {
     constexpr Vec2 scale(3, 3);
     constexpr Vec2 gap(0.2, 0.2);
     constexpr Vec2I size(static_cast<int>(scale.x / gap.x), static_cast<int>(scale.y / gap.y));
+    // constexpr Vec2 simPos(3, 3);
     constexpr Vec2 simPos(3, 3);
     constexpr double radius = 0.05;
     constexpr double gravity = 0.4;
@@ -144,7 +203,7 @@ int main() {
     Point p1(Vec2(3, 3), 1.0, radius);
     Point p2(Vec2(3, 3.2), 1.0, radius);
     springHandler(p1, p2, 1);
-    std::cout << p1.f;
+    std::cout << p1.f << '\n';
 
     // return (EXIT_SUCCESS);
 
@@ -179,13 +238,16 @@ int main() {
         
         std::chrono::nanoseconds sinceVFrame = std::chrono::high_resolution_clock::now() - start;
         while ((sinceVFrame.count() < 10'000'000)) { // TODO: min max avg frames test
+            using namespace std::chrono_literals;
             std::chrono::_V2::system_clock::time_point newLast = std::chrono::high_resolution_clock::now();
             std::chrono::nanoseconds deltaTime = newLast - last;
             // std::cout << sinceVFrame.count() << '\n';
             simFrame(points);
-            points.forEach([deltaTime] (Point& p) {
+            points.forEach([deltaTime, &t] (Point& p) {
                 p.update(static_cast<double>(deltaTime.count()) / 1e9, gravity);
-                p.polyColHandler();
+            });
+            points.forEach([deltaTime, &t] (Point& p) { // todo timing thinking
+                p.polyColHandler(t);
             });
             last = newLast;
             sinceVFrame = std::chrono::high_resolution_clock::now() - start;
@@ -206,7 +268,7 @@ int main() {
         window.display();
       
         sinceVFrame = std::chrono::high_resolution_clock::now() - start;
-        std::cout << sinceVFrame.count() << "ns\n";
+        // std::cout << sinceVFrame.count() << "ns\n";
         Vfps = 1e9 / static_cast<double>(sinceVFrame.count());
     }
 

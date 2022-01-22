@@ -11,7 +11,7 @@
 				"-Wpedantic",
 				"-Wconversion",
 				"-std=c++17",
-				"-O3",
+				// "-O3",
 				"-fdiagnostics-color=always",
 				//"-g",
 				"-I",
