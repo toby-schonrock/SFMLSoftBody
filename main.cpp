@@ -20,10 +20,10 @@ public:
     int pointCount = 4;
     Polygon(Vec2 pos, double tilt) {
         shape.setPointCount(4);
-        points[0] = Vec2(2, 0.5) + pos;
-        points[1] = Vec2(-2, 0.5) + pos;
-        points[2] = Vec2(-2, -0.5 + tilt) + pos;
-        points[3] = Vec2(2, -0.5 - tilt) + pos;
+        points[0] = Vec2(4, 0.5) + pos;
+        points[1] = Vec2(-4, 0.5) + pos;
+        points[2] = Vec2(-4, -0.5 + tilt) + pos;
+        points[3] = Vec2(4, -0.5 - tilt) + pos;
         for (int x = 0; x < 4; x++) {
             shape.setPoint(x, visualize(points[x]));
         }
@@ -47,7 +47,7 @@ public:
 
     Point(Vec2 pos_, double mass_, double radius_) : pos(pos_), mass(mass_), radius(radius_) {
         shape = sf::CircleShape(static_cast<float>(radius * vsScale));
-        shape.setFillColor(sf::Color::Green);
+        shape.setFillColor(sf::Color::Red);
         shape.setPosition(visualize(pos));
         shape.setOrigin(visualize(Vec2(radius, radius)));
     }
@@ -55,7 +55,6 @@ public:
     void draw(sf::RenderWindow& window) {
         shape.setPosition(visualize(pos));
         window.draw(shape);
-        // std::cout << pos;
     }
 
     void update(double deltaTime, double gravity) {
@@ -67,23 +66,11 @@ public:
         f = Vec2();
     }
 
-    void polyColHandler() {
-        if (pos.y > 7) {
-            vel.y *= -1;
-            pos.y = 7;
-        }
-    }
-
     void polyColHandler(Polygon& p) {
             bool inside = false;
 
-            // double closestDist = DistToEdge(p.points[p.pointCount - 1], p.points[0]);
             double closestDist = DistToEdge(p.points[p.pointCount - 1], p.points[0]);
             Vec2 closestPos = ClosestOnLine(p.points[p.pointCount - 1], p.points[0], closestDist); // test distance to side consisting of last and first vertice
-
-            // std::cout << closestDist << '\n';
-
-            // return;
 
             if (RayCast(p.points[p.pointCount - 1], p.points[0])) inside = !inside;
 
@@ -139,8 +126,8 @@ sf::Vector2f visualize(const Vec2& v) {
 
 void springHandler(Point& p1, Point& p2, double stableScale) {
     static constexpr double stablePoint = 0.2;
-    static constexpr double springConst = 300;
-    static constexpr double dampFact = 2;
+    static constexpr double springConst = 8000;
+    static constexpr double dampFact = 20;
 
     Vec2 diff = p1.pos - p2.pos;
     double e = diff.mag() - stablePoint * stableScale;
@@ -180,13 +167,12 @@ void displayFps(double Vfps, double Sfps, sf::RenderWindow& window, sf::Font fon
 }
 
 int main() {
-    constexpr Vec2 scale(3, 3);
+    constexpr Vec2 scale(4, 4);
     constexpr Vec2 gap(0.2, 0.2);
     constexpr Vec2I size(static_cast<int>(scale.x / gap.x), static_cast<int>(scale.y / gap.y));
-    // constexpr Vec2 simPos(3, 3);
     constexpr Vec2 simPos(3, 3);
     constexpr double radius = 0.05;
-    constexpr double gravity = 0.4;
+    constexpr double gravity = 2;
 
     sf::Font font;
     if (!font.loadFromFile("arial.ttf")) {
@@ -204,11 +190,6 @@ int main() {
     Point p2(Vec2(3, 3.2), 1.0, radius);
     springHandler(p1, p2, 1);
     std::cout << p1.f << '\n';
-
-    // return (EXIT_SUCCESS);
-
-    // mass is 1 kg per point
-    // 1.. is one meter
  
     sf::ContextSettings settings;
     settings.antialiasingLevel = 8;
@@ -222,7 +203,9 @@ int main() {
         } 
     }
 
-    Polygon t(Vec2(4,8), -0.5);
+    std::vector<Polygon> polys;
+    polys.push_back(Polygon(Vec2(6, 10), -0.5));
+    polys.push_back(Polygon(Vec2(14, 10), 0.5));
 
     std::chrono::_V2::system_clock::time_point last = std::chrono::high_resolution_clock::now();
     double Vfps = 0;
@@ -235,35 +218,38 @@ int main() {
         while (window.pollEvent(event)) {
              if (event.type == sf::Event::Closed) window.close();
         }
+
+        int simFrames = 0;
         
         std::chrono::nanoseconds sinceVFrame = std::chrono::high_resolution_clock::now() - start;
         while ((sinceVFrame.count() < 10'000'000)) { // TODO: min max avg frames test
-            using namespace std::chrono_literals;
+            ++simFrames;
             std::chrono::_V2::system_clock::time_point newLast = std::chrono::high_resolution_clock::now();
             std::chrono::nanoseconds deltaTime = newLast - last;
-            // std::cout << sinceVFrame.count() << '\n';
+            last = newLast;
+
             simFrame(points);
-            points.forEach([deltaTime, &t] (Point& p) {
+            points.forEach([deltaTime] (Point& p) {
                 p.update(static_cast<double>(deltaTime.count()) / 1e9, gravity);
             });
-            points.forEach([deltaTime, &t] (Point& p) { // todo timing thinking
-                p.polyColHandler(t);
+            points.forEach([&polys] (Point& p) {
+                for (int x = 0; x < polys.size(); ++x) p.polyColHandler(polys[x]);
             });
-            last = newLast;
             sinceVFrame = std::chrono::high_resolution_clock::now() - start;
         }
 
         // draw
-        std::chrono::nanoseconds deltaTime = std::chrono::high_resolution_clock::now() - last;  // TODO: avg
-        window.clear();       
-        double Sfps = 1e9 / static_cast<double>(deltaTime.count());
+        double Sfps = 1e9 * simFrames / static_cast<double>(sinceVFrame.count());
+        // double Sfps = simFrames;
+
+        window.clear(); 
         displayFps(Vfps, Sfps, window, font);
 
         points.forEach([&window] (Point& p) {
             p.draw(window);
         });
 
-        t.draw(window);
+        for (int x = 0; x < polys.size(); ++x) polys[x].draw(window);
 
         window.display();
       

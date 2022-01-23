@@ -20,12 +20,7 @@ public:
 
     template <typename Callback>
     void forEach(const Callback& cb) {
-        for (int x = 0; x < sizeX; x++) {
-            for (int y = 0; y < sizeY; y++) {
-                T& p = this-> operator()(x, y);
-                cb(p);
-            }
-        }
+        for (T& e: v) cb(e);
     }
 };
 
