@@ -15,18 +15,33 @@ sf::Vector2f visualize(const Vec2& v);
 class Polygon {
 private:
     sf::ConvexShape shape;
+    void boundsUp () {
+        maxBounds = points[0];
+        minBounds = points[0];
+        for (int x = 1; x < 4; x++) {
+            maxBounds.x = std::max(maxBounds.x, points[x].x);
+            maxBounds.y = std::max(maxBounds.y, points[x].y);
+            minBounds.x = std::min(minBounds.x, points[x].x);
+            minBounds.y = std::min(minBounds.y, points[x].y);
+        }
+    } 
 public:
-    Vec2 points[4];
     int pointCount = 4;
+    Vec2 points[4];
+    Vec2 maxBounds;
+    Vec2 minBounds;
     Polygon(Vec2 pos, double tilt) {
         shape.setPointCount(4);
         points[0] = Vec2(4, 0.5) + pos;
         points[1] = Vec2(-4, 0.5) + pos;
         points[2] = Vec2(-4, -0.5 + tilt) + pos;
         points[3] = Vec2(4, -0.5 - tilt) + pos;
-        for (int x = 0; x < 4; x++) {
-            shape.setPoint(x, visualize(points[x]));
-        }
+        boundsUp();
+        for (int x = 0; x < 4; x++) shape.setPoint(x, visualize(points[x]));
+    }
+
+    bool isBounded(Vec2 pos) {
+        return pos.x >= minBounds.x && pos.y >= minBounds.y && pos.x <= maxBounds.x && pos.y <= maxBounds.y;
     }
 
     void draw(sf::RenderWindow& window) {
@@ -83,8 +98,8 @@ public:
                 }
             }
             if (inside) {
-                Vec2 normal = (closestPos - pos);
                 if (closestDist > 1e-10){ // to prevent the norm() dividing by ~ 0
+                    Vec2 normal = (closestPos - pos);
                     normal = normal.norm();
                     vel -= (2 * normal.dot(vel) * normal);
                     pos = closestPos;
@@ -225,7 +240,8 @@ int main() {
         while ((sinceVFrame.count() < 10'000'000)) { // TODO: min max avg frames test
             ++simFrames;
             std::chrono::_V2::system_clock::time_point newLast = std::chrono::high_resolution_clock::now();
-            std::chrono::nanoseconds deltaTime = newLast - last;
+            constexpr std::chrono::nanoseconds maxFrame{1'000'000};
+            std::chrono::nanoseconds deltaTime = std::min(newLast - last, maxFrame);
             last = newLast;
 
             simFrame(points);
@@ -233,7 +249,9 @@ int main() {
                 p.update(static_cast<double>(deltaTime.count()) / 1e9, gravity);
             });
             points.forEach([&polys] (Point& p) {
-                for (int x = 0; x < polys.size(); ++x) p.polyColHandler(polys[x]);
+                for (std::size_t x = 0; x < polys.size(); ++x) {
+                    if (polys[x].isBounded(p.pos))p.polyColHandler(polys[x]);
+                }
             });
             sinceVFrame = std::chrono::high_resolution_clock::now() - start;
         }
@@ -249,7 +267,7 @@ int main() {
             p.draw(window);
         });
 
-        for (int x = 0; x < polys.size(); ++x) polys[x].draw(window);
+        for (std::size_t x = 0; x < polys.size(); ++x) polys[x].draw(window);
 
         window.display();
       
