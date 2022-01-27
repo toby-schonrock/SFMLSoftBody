@@ -1,10 +1,8 @@
 #include <array>
 
 template <typename T>
-class Matrix {
-private:
+struct Matrix {
     std::vector<T> v;
-public:
     int sizeX;
     int sizeY;
 
@@ -16,11 +14,6 @@ public:
 
     const T& operator()(int x_, int y_) const {
         return v[x_ + y_ * sizeX];
-    }
-
-    template <typename Callback>
-    void forEach(const Callback& cb) {
-        for (T& e: v) cb(e);
     }
 };
 

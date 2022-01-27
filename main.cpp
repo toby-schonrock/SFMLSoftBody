@@ -8,7 +8,7 @@
 #include <Vector2.hpp>
 #include <Matrix.hpp>
 
-constexpr double vsScale = 100.0;
+constexpr double vsScale = 125.0;
 
 sf::Vector2f visualize(const Vec2& v);
 
@@ -18,7 +18,7 @@ private:
     void boundsUp () {
         maxBounds = points[0];
         minBounds = points[0];
-        for (int x = 1; x < 4; x++) {
+        for (std::size_t x = 1; x < points.size(); x++) {
             maxBounds.x = std::max(maxBounds.x, points[x].x);
             maxBounds.y = std::max(maxBounds.y, points[x].y);
             minBounds.x = std::min(minBounds.x, points[x].x);
@@ -26,35 +26,45 @@ private:
         }
     } 
 public:
-    int pointCount = 4;
-    Vec2 points[4];
+    std::vector<Vec2> points;
     Vec2 maxBounds;
     Vec2 minBounds;
-    Polygon(Vec2 pos, double tilt) {
-        shape.setPointCount(4);
-        points[0] = Vec2(4, 0.5) + pos;
-        points[1] = Vec2(-4, 0.5) + pos;
-        points[2] = Vec2(-4, -0.5 + tilt) + pos;
-        points[3] = Vec2(4, -0.5 - tilt) + pos;
+    std::size_t pointCount;
+    Polygon(std::vector<Vec2> points_) : points(std::move(points_)), pointCount(points.size()) {
+        shape.setPointCount(pointCount);
         boundsUp();
-        for (int x = 0; x < 4; x++) shape.setPoint(x, visualize(points[x]));
+        for (std::size_t x = 0; x < points.size(); x++) shape.setPoint(x, visualize(points[x]));
     }
 
-    bool isBounded(Vec2 pos) {
+    bool isBounded(Vec2 pos) const {
         return pos.x >= minBounds.x && pos.y >= minBounds.y && pos.x <= maxBounds.x && pos.y <= maxBounds.y;
     }
 
-    void draw(sf::RenderWindow& window) {
+    void draw(sf::RenderWindow& window) const {
         window.draw(shape);
+    }
+
+    // static stuff
+    static Polygon Square(Vec2 pos, double tilt) {
+        return Polygon({Vec2(4, 0.5) + pos, 
+                        Vec2(-4, 0.5) + pos, 
+                        Vec2(-4, -0.5 + tilt) + pos, 
+                        Vec2(4, -0.5 - tilt) + pos});
+    }
+
+    static Polygon Triangle(Vec2 pos) { 
+        return Polygon({Vec2(1, 1) + pos,
+                        Vec2(-1, 1) + pos,
+                        Vec2(0, -1) + pos});
     }
 };
 
 class Point {
 public:
+    sf::CircleShape shape;
     Vec2 pos;
     Vec2 vel{0, 0}; // set to 0,0
     Vec2 f;
-    sf::CircleShape shape;
     double mass = 1.0;
     double radius;
 
@@ -81,7 +91,7 @@ public:
         f = Vec2();
     }
 
-    void polyColHandler(Polygon& p) {
+    void polyColHandler(const Polygon& p) {
             bool inside = false;
 
             double closestDist = DistToEdge(p.points[p.pointCount - 1], p.points[0]);
@@ -89,7 +99,7 @@ public:
 
             if (RayCast(p.points[p.pointCount - 1], p.points[0])) inside = !inside;
 
-            for (int x = 0; x < p.pointCount - 1; x++) { // iterate through all other sides
+            for (std::size_t x = 0; x < p.pointCount - 1; x++) { // iterate through all other sides
                 double dist = DistToEdge(p.points[x], p.points[x + 1]);
                 if (RayCast(p.points[x], p.points[x + 1])) inside = !inside;
                 if (closestDist > dist) { // if new closest side found
@@ -141,12 +151,12 @@ sf::Vector2f visualize(const Vec2& v) {
 
 void springHandler(Point& p1, Point& p2, double stableScale) {
     static constexpr double stablePoint = 0.2;
-    static constexpr double springConst = 8000;
-    static constexpr double dampFact = 20;
+    static constexpr double springConst = 5000;
+    static constexpr double dampFact = 100;
 
     Vec2 diff = p1.pos - p2.pos;
     double e = diff.mag() - stablePoint * stableScale;
-    double springf = -springConst * e; // -ke spring force
+    double springf = -springConst * e * stableScale; // -ke spring force
     double dampf = diff.norm().dot(p2.vel - p1.vel) * dampFact; // damping force
     p1.f += (springf + dampf) * diff.norm(); // equal and opposite reaction
     p2.f -= (springf + dampf) * diff.norm();
@@ -175,17 +185,17 @@ void simFrame(Matrix<Point>& points) {
 void displayFps(double Vfps, double Sfps, sf::RenderWindow& window, sf::Font font){
     sf::Text text;
     text.setFont(font); // font is a sf::Font
-    text.setString(std::to_string(Vfps) + " " + std::to_string(Sfps));
+    text.setString(std::to_string(static_cast<int>(Vfps)) + " " + std::to_string(static_cast<int>(Sfps)));
     text.setCharacterSize(24); // in pixels, not points!
     text.setFillColor(sf::Color::Red);
     window.draw(text);
 }
 
 int main() {
-    constexpr Vec2 scale(4, 4);
+    constexpr Vec2 scale(5, 5);
     constexpr Vec2 gap(0.2, 0.2);
     constexpr Vec2I size(static_cast<int>(scale.x / gap.x), static_cast<int>(scale.y / gap.y));
-    constexpr Vec2 simPos(3, 3);
+    constexpr Vec2 simPos(2, -2);
     constexpr double radius = 0.05;
     constexpr double gravity = 2;
 
@@ -209,7 +219,7 @@ int main() {
     sf::ContextSettings settings;
     settings.antialiasingLevel = 8;
 
-    sf::RenderWindow window(sf::VideoMode(1920, 1080), "Soft Body Simulation", sf::Style::Default, settings); //, sf::Style::Fullscreen);
+    sf::RenderWindow window(sf::VideoMode(2560, 1440), "Soft Body Simulation", sf::Style::Fullscreen, settings); //, sf::Style::Default);
 
     Matrix<Point> points(size.x, size.y);
     for (int x = 0; x < size.x; x++) {
@@ -219,8 +229,9 @@ int main() {
     }
 
     std::vector<Polygon> polys;
-    polys.push_back(Polygon(Vec2(6, 10), -0.5));
-    polys.push_back(Polygon(Vec2(14, 10), 0.5));
+    polys.push_back(Polygon::Square(Vec2(6, 10), -0.75));
+    polys.push_back(Polygon::Square(Vec2(14, 10), 0.75));
+    // polys.push_back(Polygon::Triangle(Vec2(4, 7)));
 
     std::chrono::_V2::system_clock::time_point last = std::chrono::high_resolution_clock::now();
     double Vfps = 0;
@@ -245,14 +256,15 @@ int main() {
             last = newLast;
 
             simFrame(points);
-            points.forEach([deltaTime] (Point& p) {
-                p.update(static_cast<double>(deltaTime.count()) / 1e9, gravity);
-            });
-            points.forEach([&polys] (Point& p) {
-                for (std::size_t x = 0; x < polys.size(); ++x) {
-                    if (polys[x].isBounded(p.pos))p.polyColHandler(polys[x]);
+            for (Point& point: points.v) {
+                point.update(static_cast<double>(deltaTime.count()) / 1e9, gravity);
+            }
+
+            for (const Polygon& poly: polys) {
+                for (Point& point: points.v) {
+                    if (poly.isBounded(point.pos)) point.polyColHandler(poly);
                 }
-            });
+            }
             sinceVFrame = std::chrono::high_resolution_clock::now() - start;
         }
 
@@ -263,11 +275,8 @@ int main() {
         window.clear(); 
         displayFps(Vfps, Sfps, window, font);
 
-        points.forEach([&window] (Point& p) {
-            p.draw(window);
-        });
-
-        for (std::size_t x = 0; x < polys.size(); ++x) polys[x].draw(window);
+        for (Point& point: points.v) point.draw(window);
+        for (const Polygon& poly: polys) poly.draw(window);
 
         window.display();
       
