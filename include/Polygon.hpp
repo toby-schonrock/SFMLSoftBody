@@ -23,7 +23,7 @@ public:
     Vec2 maxBounds;
     Vec2 minBounds;
     std::size_t pointCount;
-    Polygon(std::vector<Vec2> points_) : points(std::move(points_)), pointCount(points.size()) {
+    explicit Polygon(std::vector<Vec2> points_) : points(std::move(points_)), pointCount(points.size()) {
         shape.setPointCount(pointCount);
         boundsUp();
         for (std::size_t x = 0; x < points.size(); x++) shape.setPoint(x, visualize(points[x]));

@@ -10,46 +10,80 @@
 #include <Polygon.hpp>
 #include <Point.hpp>
 
-const double vsScale = 125.0;
+double vsScale = 125.0;
+
+void springHandler(Point& p1, Point& p2, double stableScale); // ask for help why does the friend function need to be declared out of scope
+
+class SoftBody {
+private:
+    Vec2 scale;
+    Vec2 gap;
+    Vec2I size;
+    Vec2 simPos;
+    Matrix<Point> points;
+    const double radius = 0.05;
+public:
+    SoftBody(const Vec2& scale_, const Vec2& gap_, const Vec2& simPos_) : scale(scale_), gap(gap_), simPos(simPos_), size(static_cast<int>(scale.x / gap.x), static_cast<int>(scale.y / gap.y)), points(size.x, size.y) {
+        for (int x = 0; x < size.x; x++) {
+            for (int y = 0; y < size.y; y++) {
+                points(x, y) = Point(Vec2(x * gap.x, y * gap.y) + simPos, 1.0, radius);
+            } 
+        }
+    }
+
+    void draw(sf::RenderWindow& window) {
+        for (Point& point: points.v) point.draw(window);
+    }
+
+    friend void springHandler(Point& p1, Point& p2, double stableScale) {
+        static constexpr double stablePoint = 0.2;
+        static constexpr double springConst = 8000;
+        static constexpr double dampFact = 100;
+
+        Vec2 diff = p1.pos - p2.pos;
+        double e = diff.mag() - stablePoint * stableScale;
+        double springf = -springConst * e * stableScale; // -ke spring force and also if a diagonal increase spring constant for stability // test
+        double dampf = diff.norm().dot(p2.vel - p1.vel) * dampFact; // damping force
+        p1.f += (springf + dampf) * diff.norm(); // equal and opposite reaction
+        p2.f -= (springf + dampf) * diff.norm();
+    }
+
+    void simFrame(double deltaTime, double gravity, const std::vector<Polygon>& polys) {
+        for (int x = 0; x < points.sizeX; x++) {
+            for (int y = 0; y < points.sizeY; y++) {
+                Point& p = points(x, y);
+                if (x < points.sizeX - 1) {  
+                    if (y < points.sizeY - 1) { 
+                        springHandler(p, points(x + 1, y + 1), M_SQRT2); // down right
+                    }
+                    springHandler(p, points(x + 1, y), 1.0); // right
+                }
+                if (y < points.sizeY - 1) {
+                    if (x > 0) {
+                        springHandler(p, points(x - 1, y + 1), M_SQRT2); // down left
+                    }
+                    springHandler(p, points(x, y + 1), 1.0); // down
+                }
+            }
+        }
+        for (Point& point: points.v) {
+            point.update(deltaTime, gravity);
+        }
+
+        for (const Polygon& poly: polys) {
+            for (Point& point: points.v) {
+                if (poly.isBounded(point.pos)) point.polyColHandler(poly);
+            }
+        }
+    }
+
+};
 
 sf::Vector2f visualize(const Vec2& v) {
     return sf::Vector2f(static_cast<float>(v.x * vsScale), static_cast<float>(v.y * vsScale));
 }
 
-void springHandler(Point& p1, Point& p2, double stableScale) {
-    static constexpr double stablePoint = 0.2;
-    static constexpr double springConst = 5000;
-    static constexpr double dampFact = 100;
-
-    Vec2 diff = p1.pos - p2.pos;
-    double e = diff.mag() - stablePoint * stableScale;
-    double springf = -springConst * e * stableScale; // -ke spring force
-    double dampf = diff.norm().dot(p2.vel - p1.vel) * dampFact; // damping force
-    p1.f += (springf + dampf) * diff.norm(); // equal and opposite reaction
-    p2.f -= (springf + dampf) * diff.norm();
-}
-
-void simFrame(Matrix<Point>& points) {
-    for (int x = 0; x < points.sizeX; x++) {
-        for (int y = 0; y < points.sizeY; y++) {
-            Point& p = points(x, y);
-            if (x < points.sizeX - 1) {  
-                if (y < points.sizeY - 1) { 
-                    springHandler(p, points(x + 1, y + 1), M_SQRT2); // down right
-                }
-                springHandler(p, points(x + 1, y), 1.0); // right
-            }
-            if (y < points.sizeY - 1) {
-                if (x > 0) {
-                    springHandler(p, points(x - 1, y + 1), M_SQRT2); // down left
-                }
-                springHandler(p, points(x, y + 1), 1.0); // down
-            }
-        }
-    }
-}
-
-void displayFps(double Vfps, double Sfps, sf::RenderWindow& window, sf::Font font){
+void displayFps(double Vfps, double Sfps, sf::RenderWindow& window, const sf::Font& font){
     sf::Text text;
     text.setFont(font); // font is a sf::Font
     text.setString(std::to_string(static_cast<int>(Vfps)) + " " + std::to_string(static_cast<int>(Sfps)));
@@ -59,11 +93,9 @@ void displayFps(double Vfps, double Sfps, sf::RenderWindow& window, sf::Font fon
 }
 
 int main() {
-    constexpr Vec2 scale(5, 5);
-    constexpr Vec2 gap(0.2, 0.2);
-    constexpr Vec2I size(static_cast<int>(scale.x / gap.x), static_cast<int>(scale.y / gap.y));
-    constexpr Vec2 simPos(2, -2);
-    constexpr double radius = 0.05;
+    const Vec2I screen(sf::VideoMode::getDesktopMode().width, sf::VideoMode::getDesktopMode().height); 
+    vsScale = 125 * screen.x / 2560;  // window scaling
+
     constexpr double gravity = 2;
 
     sf::Font font;
@@ -72,28 +104,23 @@ int main() {
         return (EXIT_FAILURE);
     }
 
-    std::cout << Vec2(0,1) - Vec2(0,2) << '\n'; // [0, 1]
-    std::cout << (Vec2(0,0) - Vec2(1,1)).mag() << '\n'; // 1.41421
-    std::cout << Vec2(1,1).dot(Vec2(2,2)) << '\n'; // 4
-    std::cout << Vec2(1,1).dot(Vec2(2,-2)) << '\n'; // 0
-    std::cout << Vec2(2,2).norm() << '\n'; // 0
+    // std::cout << Vec2(0,1) - Vec2(0,2) << '\n'; // [0, 1]
+    // std::cout << (Vec2(0,0) - Vec2(1,1)).mag() << '\n'; // 1.41421
+    // std::cout << Vec2(1,1).dot(Vec2(2,2)) << '\n'; // 4
+    // std::cout << Vec2(1,1).dot(Vec2(2,-2)) << '\n'; // 0
+    // std::cout << Vec2(2,2).norm() << '\n'; // 0
 
-    Point p1(Vec2(3, 3), 1.0, radius);
-    Point p2(Vec2(3, 3.2), 1.0, radius);
-    springHandler(p1, p2, 1);
-    std::cout << p1.f << '\n';
+    // Point p1(Vec2(3, 3), 1.0, radius);
+    // Point p2(Vec2(3, 3.2), 1.0, radius);
+    // springHandler(p1, p2, 1);
+    // std::cout << p1.f << '\n';
  
     sf::ContextSettings settings;
     settings.antialiasingLevel = 8;
 
-    sf::RenderWindow window(sf::VideoMode(2560, 1440), "Soft Body Simulation", sf::Style::Fullscreen, settings); //, sf::Style::Default);
+    sf::RenderWindow window(sf::VideoMode::getDesktopMode(), "Soft Body Simulation", sf::Style::Fullscreen, settings); //, sf::Style::Default);
 
-    Matrix<Point> points(size.x, size.y);
-    for (int x = 0; x < size.x; x++) {
-        for (int y = 0; y < size.y; y++) {
-            points(x, y) = Point(Vec2(x * gap.x, y * gap.y) + simPos, 1.0, radius);
-        } 
-    }
+    SoftBody sb(Vec2(5, 3), Vec2(0.2, 0.2), Vec2(2, 0));
 
     std::vector<Polygon> polys;
     polys.push_back(Polygon::Square(Vec2(6, 10), -0.75));
@@ -122,16 +149,7 @@ int main() {
             std::chrono::nanoseconds deltaTime = std::min(newLast - last, maxFrame);
             last = newLast;
 
-            simFrame(points);
-            for (Point& point: points.v) {
-                point.update(static_cast<double>(deltaTime.count()) / 1e9, gravity);
-            }
-
-            for (const Polygon& poly: polys) {
-                for (Point& point: points.v) {
-                    if (poly.isBounded(point.pos)) point.polyColHandler(poly);
-                }
-            }
+            sb.simFrame(static_cast<double>(deltaTime.count()) / 1e9, gravity, polys);
             sinceVFrame = std::chrono::high_resolution_clock::now() - start;
         }
 
@@ -142,7 +160,7 @@ int main() {
         window.clear(); 
         displayFps(Vfps, Sfps, window, font);
 
-        for (Point& point: points.v) point.draw(window);
+        sb.draw(window);
         for (const Polygon& poly: polys) poly.draw(window);
 
         window.display();

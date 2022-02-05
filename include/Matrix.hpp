@@ -5,8 +5,8 @@
 template <typename T>
 struct Matrix {
     std::vector<T> v;
-    int sizeX;
-    int sizeY;
+    int sizeX = 0;
+    int sizeY = 0;
 
     Matrix(int x_, int y_) : v(x_ * y_, T{}), sizeX(x_), sizeY(y_) {}
 
