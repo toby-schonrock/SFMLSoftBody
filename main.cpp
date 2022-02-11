@@ -12,8 +12,6 @@
 
 double vsScale = 125.0;
 
-void springHandler(Point& p1, Point& p2, double stableScale); // ask for help why does the friend function need to be declared out of scope
-
 class SoftBody {
 private:
     Vec2 scale;
@@ -23,7 +21,7 @@ private:
     Matrix<Point> points;
     const double radius = 0.05;
 public:
-    SoftBody(const Vec2& scale_, const Vec2& gap_, const Vec2& simPos_) : scale(scale_), gap(gap_), simPos(simPos_), size(static_cast<int>(scale.x / gap.x), static_cast<int>(scale.y / gap.y)), points(size.x, size.y) {
+    SoftBody(const Vec2& scale_, const Vec2& gap_, const Vec2& simPos_) : scale(scale_), gap(gap_), size(static_cast<int>(scale.x / gap.x), static_cast<int>(scale.y / gap.y)), simPos(simPos_), points(size.x, size.y) {
         for (int x = 0; x < size.x; x++) {
             for (int y = 0; y < size.y; y++) {
                 points(x, y) = Point(Vec2(x * gap.x, y * gap.y) + simPos, 1.0, radius);
@@ -35,34 +33,21 @@ public:
         for (Point& point: points.v) point.draw(window);
     }
 
-    friend void springHandler(Point& p1, Point& p2, double stableScale) {
-        static constexpr double stablePoint = 0.2;
-        static constexpr double springConst = 8000;
-        static constexpr double dampFact = 100;
-
-        Vec2 diff = p1.pos - p2.pos;
-        double e = diff.mag() - stablePoint * stableScale;
-        double springf = -springConst * e * stableScale; // -ke spring force and also if a diagonal increase spring constant for stability // test
-        double dampf = diff.norm().dot(p2.vel - p1.vel) * dampFact; // damping force
-        p1.f += (springf + dampf) * diff.norm(); // equal and opposite reaction
-        p2.f -= (springf + dampf) * diff.norm();
-    }
-
     void simFrame(double deltaTime, double gravity, const std::vector<Polygon>& polys) {
         for (int x = 0; x < points.sizeX; x++) {
             for (int y = 0; y < points.sizeY; y++) {
                 Point& p = points(x, y);
                 if (x < points.sizeX - 1) {  
                     if (y < points.sizeY - 1) { 
-                        springHandler(p, points(x + 1, y + 1), M_SQRT2); // down right
+                        Point::springHandler(p, points(x + 1, y + 1), M_SQRT2); // down right
                     }
-                    springHandler(p, points(x + 1, y), 1.0); // right
+                    Point::springHandler(p, points(x + 1, y), 1.0); // right
                 }
                 if (y < points.sizeY - 1) {
                     if (x > 0) {
-                        springHandler(p, points(x - 1, y + 1), M_SQRT2); // down left
+                        Point::springHandler(p, points(x - 1, y + 1), M_SQRT2); // down left
                     }
-                    springHandler(p, points(x, y + 1), 1.0); // down
+                    Point::springHandler(p, points(x, y + 1), 1.0); // down
                 }
             }
         }
@@ -120,12 +105,18 @@ int main() {
 
     sf::RenderWindow window(sf::VideoMode::getDesktopMode(), "Soft Body Simulation", sf::Style::Fullscreen, settings); //, sf::Style::Default);
 
-    SoftBody sb(Vec2(5, 3), Vec2(0.2, 0.2), Vec2(2, 0));
+    SoftBody sb(Vec2(5, 5), Vec2(0.2, 0.2), Vec2(3, 0));
 
     std::vector<Polygon> polys;
     polys.push_back(Polygon::Square(Vec2(6, 10), -0.75));
     polys.push_back(Polygon::Square(Vec2(14, 10), 0.75));
-    // polys.push_back(Polygon::Triangle(Vec2(4, 7)));
+    polys.push_back(Polygon::Triangle(Vec2(100, 100)));
+    polys.push_back(Polygon::Triangle(Vec2(100, 100)));
+    polys.push_back(Polygon::Triangle(Vec2(100, 100)));
+    polys.push_back(Polygon::Triangle(Vec2(100, 100)));
+    polys.push_back(Polygon::Triangle(Vec2(100, 100)));
+    polys.push_back(Polygon::Triangle(Vec2(100, 100)));
+    
 
     std::chrono::_V2::system_clock::time_point last = std::chrono::high_resolution_clock::now();
     double Vfps = 0;

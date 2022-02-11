@@ -90,4 +90,18 @@ public:
         double TBase = (v1 - v2).mag();
         return TArea / TBase;
     }
+
+    
+    static void springHandler(Point& p1, Point& p2, double stableScale) { // ask for help why does the friend function need to be declared out of scope
+        static constexpr double stablePoint = 0.2;
+        static constexpr double springConst = 8000;
+        static constexpr double dampFact = 100;
+
+        Vec2 diff = p1.pos - p2.pos;
+        double e = diff.mag() - stablePoint * stableScale;
+        double springf = -springConst * e * stableScale; // -ke spring force and also if a diagonal increase spring constant for stability // test
+        double dampf = diff.norm().dot(p2.vel - p1.vel) * dampFact; // damping force
+        p1.f += (springf + dampf) * diff.norm(); // equal and opposite reaction
+        p2.f -= (springf + dampf) * diff.norm();
+    }
 };
