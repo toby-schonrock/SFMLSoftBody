@@ -4,11 +4,13 @@
 #include <chrono>
 #include <iostream>
 
-#include <SFML/Graphics.hpp>
-#include <Vector2.hpp>
-#include <Matrix.hpp>
-#include <Polygon.hpp>
-#include <Point.hpp>
+#include "imgui.h"
+#include "imgui-SFML.h"
+#include "SFML/Graphics.hpp"
+#include "Vector2.hpp"
+#include "Matrix.hpp"
+#include "Polygon.hpp"
+#include "Point.hpp"
 
 double vsScale = 125.0;
 
@@ -19,7 +21,7 @@ private:
     Vec2I size;
     Vec2 simPos;
     Matrix<Point> points;
-    const double radius = 0.05;
+    static constexpr double radius = 0.05;
 public:
     SoftBody(const Vec2& scale_, const Vec2& gap_, const Vec2& simPos_) : scale(scale_), gap(gap_), size(static_cast<int>(scale.x / gap.x), static_cast<int>(scale.y / gap.y)), simPos(simPos_), points(size.x, size.y) {
         for (int x = 0; x < size.x; x++) {
@@ -78,10 +80,10 @@ void displayFps(double Vfps, double Sfps, sf::RenderWindow& window, const sf::Fo
 }
 
 int main() {
+    float gravity = 2;
+
     const Vec2I screen(sf::VideoMode::getDesktopMode().width, sf::VideoMode::getDesktopMode().height); 
     vsScale = 125 * screen.x / 2560;  // window scaling
-
-    constexpr double gravity = 2;
 
     sf::Font font;
     if (!font.loadFromFile("arial.ttf")) {
@@ -89,21 +91,11 @@ int main() {
         return (EXIT_FAILURE);
     }
 
-    // std::cout << Vec2(0,1) - Vec2(0,2) << '\n'; // [0, 1]
-    // std::cout << (Vec2(0,0) - Vec2(1,1)).mag() << '\n'; // 1.41421
-    // std::cout << Vec2(1,1).dot(Vec2(2,2)) << '\n'; // 4
-    // std::cout << Vec2(1,1).dot(Vec2(2,-2)) << '\n'; // 0
-    // std::cout << Vec2(2,2).norm() << '\n'; // 0
-
-    // Point p1(Vec2(3, 3), 1.0, radius);
-    // Point p2(Vec2(3, 3.2), 1.0, radius);
-    // springHandler(p1, p2, 1);
-    // std::cout << p1.f << '\n';
- 
     sf::ContextSettings settings;
     settings.antialiasingLevel = 8;
 
     sf::RenderWindow window(sf::VideoMode::getDesktopMode(), "Soft Body Simulation", sf::Style::Fullscreen, settings); //, sf::Style::Default);
+    ImGui::SFML::Init(window);
 
     SoftBody sb(Vec2(5, 5), Vec2(0.2, 0.2), Vec2(3, 0));
 
@@ -111,24 +103,26 @@ int main() {
     polys.push_back(Polygon::Square(Vec2(6, 10), -0.75));
     polys.push_back(Polygon::Square(Vec2(14, 10), 0.75));
     polys.push_back(Polygon::Triangle(Vec2(100, 100)));
-    polys.push_back(Polygon::Triangle(Vec2(100, 100)));
-    polys.push_back(Polygon::Triangle(Vec2(100, 100)));
-    polys.push_back(Polygon::Triangle(Vec2(100, 100)));
-    polys.push_back(Polygon::Triangle(Vec2(100, 100)));
-    polys.push_back(Polygon::Triangle(Vec2(100, 100)));
-    
 
     std::chrono::_V2::system_clock::time_point last = std::chrono::high_resolution_clock::now();
     double Vfps = 0;
 
+    sf::Clock deltaClock; // for imgui read https://eliasdaler.github.io/using-imgui-with-sfml-pt1/
     while (window.isOpen()) {
         std::chrono::_V2::system_clock::time_point start = std::chrono::high_resolution_clock::now();
 
-        // clear poll events for sfml
+        // clear poll events for sfml and imgui
         sf::Event event;
         while (window.pollEvent(event)) {
-             if (event.type == sf::Event::Closed) window.close();
+            ImGui::SFML::ProcessEvent(event);
+            if (event.type == sf::Event::Closed) window.close();
         }
+
+        ImGui::SFML::Update(window, deltaClock.restart());
+
+        ImGui::Begin("Settings");
+        ImGui::DragFloat("Gravity", &gravity, 0.005f);
+        if (ImGui::Button("Reset sim")) sb = SoftBody(Vec2(5, 5), Vec2(0.2, 0.2), Vec2(3, 0));
 
         int simFrames = 0;
         
@@ -154,12 +148,15 @@ int main() {
         sb.draw(window);
         for (const Polygon& poly: polys) poly.draw(window);
 
+        ImGui::End();
+        ImGui::SFML::Render(window); // end and draw
         window.display();
       
         sinceVFrame = std::chrono::high_resolution_clock::now() - start;
         // std::cout << sinceVFrame.count() << "ns\n";
         Vfps = 1e9 / static_cast<double>(sinceVFrame.count());
     }
+    ImGui::SFML::Shutdown();
 
     return 0;
 }

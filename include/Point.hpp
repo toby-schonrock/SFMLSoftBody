@@ -99,7 +99,7 @@ public:
 
         Vec2 diff = p1.pos - p2.pos;
         double e = diff.mag() - stablePoint * stableScale;
-        double springf = -springConst * e * stableScale; // -ke spring force and also if a diagonal increase spring constant for stability // test
+        double springf = -springConst * e; // -ke spring force and also if a diagonal increase spring constant for stability // test
         double dampf = diff.norm().dot(p2.vel - p1.vel) * dampFact; // damping force
         p1.f += (springf + dampf) * diff.norm(); // equal and opposite reaction
         p2.f -= (springf + dampf) * diff.norm();

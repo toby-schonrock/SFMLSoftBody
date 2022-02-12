@@ -5,6 +5,8 @@
             "includePath": [
                 "${workspaceFolder}/**",
                 "${workspaceFolder}/../SFML-2.5.1/include",
+                "${workspaceFolder}/../imgui-1.87",
+                "${workspaceFolder}/../imgui-sfml-2.5",
                 "${workspaceFolder}/include"
             ],
             "defines": [
