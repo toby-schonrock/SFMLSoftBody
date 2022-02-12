@@ -92,13 +92,9 @@ public:
     }
 
     
-    static void springHandler(Point& p1, Point& p2, double stableScale) { // ask for help why does the friend function need to be declared out of scope
-        static constexpr double stablePoint = 0.2;
-        static constexpr double springConst = 8000;
-        static constexpr double dampFact = 100;
-
+    static void springHandler(Point& p1, Point& p2, double stablePoint, float springConst, float dampFact) { 
         Vec2 diff = p1.pos - p2.pos;
-        double e = diff.mag() - stablePoint * stableScale;
+        double e = diff.mag() - stablePoint;
         double springf = -springConst * e; // -ke spring force and also if a diagonal increase spring constant for stability // test
         double dampf = diff.norm().dot(p2.vel - p1.vel) * dampFact; // damping force
         p1.f += (springf + dampf) * diff.norm(); // equal and opposite reaction

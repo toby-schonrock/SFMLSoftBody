@@ -14,6 +14,6 @@ int main() {
 
     Point p1(Vec2(3, 3), 1.0, radius);
     Point p2(Vec2(3, 3.2), 1.0, radius);
-    Point::springHandler(p1, p2, 1);
+    Point::springHandler(p1, p2, 1, 8000, 100);
     std::cout << p1.f << '\n';
 }

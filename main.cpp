@@ -1,8 +1,8 @@
-#define _USE_MATH_DEFINES
 #include <cmath>
 #include <string>
 #include <chrono>
 #include <iostream>
+#include <numbers>
 
 #include "imgui.h"
 #include "imgui-SFML.h"
@@ -15,20 +15,28 @@
 double vsScale = 125.0;
 
 class SoftBody {
-private:
-    Vec2 scale;
-    Vec2 gap;
+public:
     Vec2I size;
     Vec2 simPos;
+    float springConst = 8000; 
+    float dampFact = 100;
+    float gap;
+private:
     Matrix<Point> points;
     static constexpr double radius = 0.05;
 public:
-    SoftBody(const Vec2& scale_, const Vec2& gap_, const Vec2& simPos_) : scale(scale_), gap(gap_), size(static_cast<int>(scale.x / gap.x), static_cast<int>(scale.y / gap.y)), simPos(simPos_), points(size.x, size.y) {
+
+    SoftBody(const Vec2I& size_, float gap_, const Vec2& simPos_, float springConst_, float dampFact_) : 
+        size(size_), simPos(simPos_), springConst(springConst_), dampFact(dampFact_), gap(gap_), points(size.x, size.y) {
         for (int x = 0; x < size.x; x++) {
             for (int y = 0; y < size.y; y++) {
-                points(x, y) = Point(Vec2(x * gap.x, y * gap.y) + simPos, 1.0, radius);
+                points(x, y) = Point(Vec2(x, y) * gap + simPos, 1.0, radius);
             } 
         }
+    }
+
+    void reset() { // evil function 
+        *this = SoftBody(size, gap, simPos, springConst, dampFact);
     }
 
     void draw(sf::RenderWindow& window) {
@@ -41,15 +49,15 @@ public:
                 Point& p = points(x, y);
                 if (x < points.sizeX - 1) {  
                     if (y < points.sizeY - 1) { 
-                        Point::springHandler(p, points(x + 1, y + 1), M_SQRT2); // down right
+                        Point::springHandler(p, points(x + 1, y + 1), std::numbers::sqrt2 * gap, springConst, dampFact); // down right
                     }
-                    Point::springHandler(p, points(x + 1, y), 1.0); // right
+                    Point::springHandler(p, points(x + 1, y), gap, springConst, dampFact); // right
                 }
                 if (y < points.sizeY - 1) {
                     if (x > 0) {
-                        Point::springHandler(p, points(x - 1, y + 1), M_SQRT2); // down left
+                        Point::springHandler(p, points(x - 1, y + 1), std::numbers::sqrt2 * gap, springConst, dampFact); // down left
                     }
-                    Point::springHandler(p, points(x, y + 1), 1.0); // down
+                    Point::springHandler(p, points(x, y + 1), gap, springConst, dampFact); // down
                 }
             }
         }
@@ -97,7 +105,7 @@ int main() {
     sf::RenderWindow window(sf::VideoMode::getDesktopMode(), "Soft Body Simulation", sf::Style::Fullscreen, settings); //, sf::Style::Default);
     ImGui::SFML::Init(window);
 
-    SoftBody sb(Vec2(5, 5), Vec2(0.2, 0.2), Vec2(3, 0));
+    SoftBody sb(Vec2I(25, 25), 0.2F, Vec2(3, 0), 8000, 100);
 
     std::vector<Polygon> polys;
     polys.push_back(Polygon::Square(Vec2(6, 10), -0.75));
@@ -107,7 +115,7 @@ int main() {
     std::chrono::_V2::system_clock::time_point last = std::chrono::high_resolution_clock::now();
     double Vfps = 0;
 
-    sf::Clock deltaClock; // for imgui read https://eliasdaler.github.io/using-imgui-with-sfml-pt1/
+    sf::Clock deltaClock; // for imgui - read https://eliasdaler.github.io/using-imgui-with-sfml-pt1/
     while (window.isOpen()) {
         std::chrono::_V2::system_clock::time_point start = std::chrono::high_resolution_clock::now();
 
@@ -121,8 +129,14 @@ int main() {
         ImGui::SFML::Update(window, deltaClock.restart());
 
         ImGui::Begin("Settings");
-        ImGui::DragFloat("Gravity", &gravity, 0.005f);
-        if (ImGui::Button("Reset sim")) sb = SoftBody(Vec2(5, 5), Vec2(0.2, 0.2), Vec2(3, 0));
+        ImGui::DragFloat("Gravity", &gravity, 0.01f);
+        ImGui::DragFloat("Gap", &sb.gap, 0.005f);
+        ImGui::DragFloat("Spring Constant", &sb.springConst, 10.0f, 0.0F, 20000.0F);
+        ImGui::DragFloat("Damping Factor", &sb.dampFact, 1.0f, 0.0F, 300.0F);
+        ImGui::DragInt("Size X", &sb.size.x, 1, 2, 50);
+        ImGui::DragInt("Size Y", &sb.size.y, 1, 2, 50);
+        if (ImGui::Button("Reset sim")) sb.reset();
+
 
         int simFrames = 0;
         
