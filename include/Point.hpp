@@ -4,7 +4,7 @@
 #include <Vector2.hpp>
 #include <Polygon.hpp>
 
-extern double vsScale;
+extern float vsScale;
 
 class Point {
 public:
@@ -13,18 +13,19 @@ public:
     Vec2 vel{0, 0}; // set to 0,0
     Vec2 f;
     double mass = 1.0;
-    double radius;
+    float radius;
 
     Point() {}
 
-    Point(Vec2 pos_, double mass_, double radius_) : pos(pos_), mass(mass_), radius(radius_) {
-        shape = sf::CircleShape(static_cast<float>(radius * vsScale));
+    Point(Vec2 pos_, double mass_, float radius_) : pos(pos_), mass(mass_), radius(radius_) {
+        shape = sf::CircleShape(radius * vsScale);
         shape.setFillColor(sf::Color::Red);
         shape.setPosition(visualize(pos));
         shape.setOrigin(visualize(Vec2(radius, radius)));
     }
 
     void draw(sf::RenderWindow& window) {
+        shape.setRadius(radius * vsScale);
         shape.setPosition(visualize(pos));
         window.draw(shape);
     }
@@ -93,11 +94,14 @@ public:
 
     
     static void springHandler(Point& p1, Point& p2, double stablePoint, float springConst, float dampFact) { 
-        Vec2 diff = p1.pos - p2.pos;
-        double e = diff.mag() - stablePoint;
-        double springf = -springConst * e; // -ke spring force and also if a diagonal increase spring constant for stability // test
-        double dampf = diff.norm().dot(p2.vel - p1.vel) * dampFact; // damping force
-        p1.f += (springf + dampf) * diff.norm(); // equal and opposite reaction
-        p2.f -= (springf + dampf) * diff.norm();
+        Vec2 diff = p1.pos - p2.pos;  // broken out alot "yes this is faster! really like 3x" 
+        double diffMag = diff.mag();
+        Vec2 diffNorm = diff / diffMag; 
+        double ext = diffMag - stablePoint;
+        double springf = -springConst * ext; // -ke spring force and also if a diagonal increase spring constant for stability // test
+        double dampf = diffNorm.dot(p2.vel - p1.vel) * dampFact; // damping force
+        Vec2 force = (springf + dampf) * diffNorm;
+        p1.f += force; // equal and opposite reaction
+        p2.f -= force;
     }
 };

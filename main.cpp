@@ -12,26 +12,25 @@
 #include "Polygon.hpp"
 #include "Point.hpp"
 
-double vsScale = 125.0;
+float vsScale = 0;
 
 class SoftBody {
 public:
     Vec2I size;
     Vec2 simPos;
-    float springConst = 8000; 
+    float springConst = 8000;
     float dampFact = 100;
     float gap;
 private:
     Matrix<Point> points;
-    static constexpr double radius = 0.05;
+    static constexpr float radius = 0.05F;
 public:
-
-    SoftBody(const Vec2I& size_, float gap_, const Vec2& simPos_, float springConst_, float dampFact_) : 
+    SoftBody(const Vec2I& size_, float gap_, const Vec2& simPos_, float springConst_, float dampFact_) :
         size(size_), simPos(simPos_), springConst(springConst_), dampFact(dampFact_), gap(gap_), points(size.x, size.y) {
         for (int x = 0; x < size.x; x++) {
             for (int y = 0; y < size.y; y++) {
                 points(x, y) = Point(Vec2(x, y) * gap + simPos, 1.0, radius);
-            } 
+            }
         }
     }
 
@@ -75,7 +74,7 @@ public:
 };
 
 sf::Vector2f visualize(const Vec2& v) {
-    return sf::Vector2f(static_cast<float>(v.x * vsScale), static_cast<float>(v.y * vsScale));
+    return sf::Vector2f(static_cast<float>(v.x), static_cast<float>(v.y)) * vsScale;
 }
 
 void displayFps(double Vfps, double Sfps, sf::RenderWindow& window, const sf::Font& font){
@@ -87,11 +86,28 @@ void displayFps(double Vfps, double Sfps, sf::RenderWindow& window, const sf::Fo
     window.draw(text);
 }
 
+void displayImGui(SoftBody& sb, float& gravity) {
+    ImGui::Begin("Settings");
+    ImGui::DragFloat("Gravity", &gravity, 0.01f);
+    ImGui::DragFloat("Gap", &sb.gap, 0.005f);
+    ImGui::DragFloat("Spring Constant", &sb.springConst, 10.0f, 0.0F, 20000.0F);
+    ImGui::DragFloat("Damping Factor", &sb.dampFact, 1.0f, 0.0F, 300.0F);
+    ImGui::DragInt("Size X", &sb.size.x, 1, 2, 50);
+    ImGui::DragInt("Size Y", &sb.size.y, 1, 2, 50);
+    ImGui::DragFloat("Zoom", &vsScale, 1, 0, 250);
+    if (ImGui::Button("Reset sim")) sb.reset();
+    ImGui::SameLine();
+    if (ImGui::Button("Default sim")) {
+        sb = SoftBody(Vec2I(25, 25), 0.2F, Vec2(3, 0), 8000, 100);
+        gravity = 2.0F;
+    }
+}
+
 int main() {
     float gravity = 2;
 
-    const Vec2I screen(sf::VideoMode::getDesktopMode().width, sf::VideoMode::getDesktopMode().height); 
-    vsScale = 125 * screen.x / 2560;  // window scaling
+    const Vec2I screen(sf::VideoMode::getDesktopMode().width, sf::VideoMode::getDesktopMode().height);
+    vsScale = 25.0F/512.0F * static_cast<float>(screen.x);  // window scaling
 
     sf::Font font;
     if (!font.loadFromFile("arial.ttf")) {
@@ -127,16 +143,7 @@ int main() {
         }
 
         ImGui::SFML::Update(window, deltaClock.restart());
-
-        ImGui::Begin("Settings");
-        ImGui::DragFloat("Gravity", &gravity, 0.01f);
-        ImGui::DragFloat("Gap", &sb.gap, 0.005f);
-        ImGui::DragFloat("Spring Constant", &sb.springConst, 10.0f, 0.0F, 20000.0F);
-        ImGui::DragFloat("Damping Factor", &sb.dampFact, 1.0f, 0.0F, 300.0F);
-        ImGui::DragInt("Size X", &sb.size.x, 1, 2, 50);
-        ImGui::DragInt("Size Y", &sb.size.y, 1, 2, 50);
-        if (ImGui::Button("Reset sim")) sb.reset();
-
+        displayImGui(sb, gravity);
 
         int simFrames = 0;
         
@@ -160,7 +167,7 @@ int main() {
         displayFps(Vfps, Sfps, window, font);
 
         sb.draw(window);
-        for (const Polygon& poly: polys) poly.draw(window);
+        for (Polygon& poly: polys) poly.draw(window);
 
         ImGui::End();
         ImGui::SFML::Render(window); // end and draw

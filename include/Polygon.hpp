@@ -33,7 +33,8 @@ public:
         return pos.x >= minBounds.x && pos.y >= minBounds.y && pos.x <= maxBounds.x && pos.y <= maxBounds.y;
     }
 
-    void draw(sf::RenderWindow& window) const {
+    void draw(sf::RenderWindow& window) {
+        for (std::size_t x = 0; x < points.size(); x++) shape.setPoint(x, visualize(points[x]));
         window.draw(shape);
     }
 
