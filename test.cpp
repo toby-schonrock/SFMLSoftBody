@@ -3,7 +3,7 @@
 #include "Point.hpp"
 #include "Vector2.hpp"
 
-static constexpr double radius = 0.05;
+constexpr float radius = 0.05F;
 
 int main() {
     std::cout << Vec2(0,1) - Vec2(0,2) << '\n'; // [0, 1]
