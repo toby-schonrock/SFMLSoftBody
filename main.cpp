@@ -3,12 +3,13 @@
 #include <iostream>
 #include <numbers>
 #include <string>
+#include <cstdio>
 
 #include "Matrix.hpp"
 #include "Point.hpp"
 #include "Polygon.hpp"
-#include "SFML/Graphics.hpp"
 #include "Vector2.hpp"
+#include "Graph.hpp"
 #include "imgui-SFML.h"
 #include "imgui.h"
 
@@ -82,7 +83,13 @@ sf::Vector2f visualize(const Vec2& v) {
     return sf::Vector2f(static_cast<float>(v.x), static_cast<float>(v.y)) * vsScale;
 }
 
-void displayFps(double Vfps, double Sfps, sf::RenderWindow& window, const sf::Font& font) {
+void displayFps(double Vfps, double Sfps, sf::RenderWindow& window, const sf::Font& font, Graph& fps) {
+    ImGui::Begin("FPS");
+    char overlay[32];
+    sprintf(overlay, "Avg = %f", fps.avg());
+    ImGui::PlotLines("fps", fps.arr(), fps.data.size(), 0, overlay, 0.0f, 100.0f, ImVec2(0, 0), 4); // .his feels pretty evil
+    ImGui::End();
+    
     sf::Text text;
     text.setFont(font); // font is a sf::Font
     text.setString(std::to_string(static_cast<int>(Vfps)) + " " +
@@ -107,10 +114,12 @@ void displayImGui(SoftBody& sb, float& gravity) {
         sb      = SoftBody(Vec2I(25, 25), 0.2F, Vec2(3, 0), 8000, 100);      
         gravity = 2.0F;
     }
+    ImGui::End();
 }
 
 int main() {
     float gravity = 2;
+    Graph fps(std::pair<std::string, std::string>("time","fps"), 160);
 
     const Vec2I screen(sf::VideoMode::getDesktopMode().width,
                        sf::VideoMode::getDesktopMode().height);
@@ -129,7 +138,7 @@ int main() {
                             sf::Style::Fullscreen, settings); //, sf::Style::Default);
     ImGui::SFML::Init(window);
 
-    SoftBody sb(Vec2I(25, 25), 0.2F, Vec2(3, 0), 8000, 100);
+    SoftBody sb(Vec2I(25, 25), 0.2F, Vec2(3, 0), 10000, 100);
 
     std::vector<Polygon> polys;
     polys.push_back(Polygon::Square(Vec2(6, 10), -0.75));
@@ -175,13 +184,13 @@ int main() {
         // double Sfps = simFrames;
 
         window.clear();
-        displayFps(Vfps, Sfps, window, font);
+        displayFps(Vfps, Sfps, window, font, fps);
+        fps.add(Vfps);
 
         sb.draw(window);
         for (Polygon& poly: polys) poly.draw(window);
 
-        ImGui::End();
-        ImGui::SFML::Render(window); // end and draw
+        ImGui::SFML::Render(window); // end(has been moved) and draw
         window.display();
 
         sinceVFrame = std::chrono::high_resolution_clock::now() - start;
